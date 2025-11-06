@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPTarkov Loadout Editor</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple dark mode styles */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        html {
+            background-color: #111827; /* gray-900 */
+            color: #d1d5db; /* gray-300 */
+        }
+        /* Style for file inputs */
+        input[type="file"]::file-selector-button {
+            margin-right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: 0;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            font-weight: 600;
+            background-color: #2563eb; /* blue-600 */
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #1d4ed8; /* blue-700 */
+        }
+        /* Style for number inputs */
+        input[type="number"] {
+            background-color: #374151; /* gray-700 */
+            border: 1px solid #4b5563; /* gray-600 */
+            color: #d1d5db; /* gray-300 */
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            width: 6rem;
+            text-align: right;
+        }
+        /* Dark mode for modal inputs */
+        .modal-input {
+            background-color: #374151; /* gray-700 */
+            border: 1px solid #4b5563; /* gray-600 */
+            color: #d1d5db; /* gray-300 */
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        
+        /* Tree view styling */
+        details {
+            margin-left: 1rem;
+            border-left: 1px solid #374151; /* gray-700 */
+            padding-left: 1rem;
+            position: relative;
+        }
+        summary {
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 0.375rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        summary:hover {
+            background-color: #1f2937; /* gray-800 */
+        }
+        summary::marker {
+            color: #6b7280; /* gray-500 */
+        }
+        .key-name {
+            font-weight: 600;
+            color: #93c5fd; /* blue-300 */
+        }
+        .key-id {
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #6b7280; /* gray-500 */
+            margin-left: 0.5rem;
+        }
+        .item-name {
+            color: #a7f3d0; /* green-200 */
+        }
+        .mod-slot {
+            color: #fde68a; /* yellow-200 */
+            font-weight: 600;
+        }
+        /* Base for all tree nodes */
+        .tree-node {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem;
+            margin-left: 1rem;
+            position: relative;
+        }
+        .tree-node-key {
+            display: inline-block;
+        }
+        /* Add/Remove Buttons */
+        .remove-btn, .add-btn {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            margin-left: 0.5rem;
+            opacity: 0.5;
+            transition: all 0.2s;
+        }
+        .remove-btn {
+            background-color: #991b1b; /* red-800 */
+            color: #fecaca; /* red-200 */
+        }
+        .add-btn {
+            background-color: #166534; /* green-800 */
+            color: #bbf7d0; /* green-200 */
+            margin-top: 0.5rem;
+            margin-left: 1rem;
+        }
+        .remove-btn:hover, .add-btn:hover {
+            opacity: 1;
+        }
+        summary:hover .remove-btn {
+            opacity: 1;
+        }
+        .tree-node:hover .remove-btn {
+            opacity: 1;
+        }
+    </style>
+    <!-- Use Inter font -->
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+</head>
+<body class="h-full antialiased">
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tight text-white">SPTarkov Loadout Editor</h1>
+            <p class="mt-2 text-lg text-gray-400">Upload your loadout (e.g., `usec.json`) and locales (e.g., `en.json`) files to easily view and edit item chances.</p>
+        </header>
+
+        <!-- File Upload Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <label for="loadout-file" class="block text-sm font-medium text-gray-300 mb-2">1. Upload Loadout File (e.g., usec.json)</label>
+                <input type="file" id="loadout-file" accept=".json" class="block w-full text-sm text-gray-400">
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <label for="locales-file" class="block text-sm font-medium text-gray-300 mb-2">2. Upload Locales File (e.g., en.json)</label>
+                <input type="file" id="locales-file" accept=".json" class="block w-full text-sm text-gray-400">
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status-message" class="text-center text-yellow-300 mb-6" role="status">
+            Please upload both files to begin.
+        </div>
+
+        <!-- Editor and Save Button (Initially Hidden) -->
+        <div id="editor-controls" class="hidden">
+            <button id="save-button" class="mb-6 w-full md:w-auto inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6a1 1 0 10-2 0v5.586L7.707 10.293zM3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
+                </svg>
+                Save and Download Edited Loadout File
+            </button>
+            <div id="editor-container" class="bg-gray-800 p-6 rounded-lg shadow-inner">
+                <!-- Interactive editor will be rendered here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal (initially hidden) -->
+    <div id="add-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 id="modal-title" class="text-lg font-medium text-white mb-4">Add New Entry</h3>
+            <div id="modal-content" class="space-y-4">
+                <!-- Content injected by JS -->
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="modal-cancel" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium">Cancel</button>
+                <button id="modal-confirm" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datalists for autocomplete -->
+    <datalist id="item-list"></datalist>
+    <datalist id="slot-list"></datalist>
+
+    <script>
+        // --- Global State ---
+        let localesMap = new Map();
+        let loadoutData = null;
+        let loadoutFileName = 'edited_loadout.json';
+        let filesReady = { loadout: false, locales: false };
+        let allItems = []; // Array of {id, name}
+        let allModSlots = []; // Array of strings
+
+        // --- Element Refs ---
+        const loadoutInput = document.getElementById('loadout-file');
+        const localesInput = document.getElementById('locales-file');
+        const statusMessage = document.getElementById('status-message');
+        const editorControls = document.getElementById('editor-controls');
+        const editorContainer = document.getElementById('editor-container');
+        const saveButton = document.getElementById('save-button');
+        const modal = document.getElementById('add-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const modalCancel = document.getElementById('modal-cancel');
+        let modalConfirm = document.getElementById('modal-confirm');
+        const itemDatalist = document.getElementById('item-list');
+        const slotDatalist = document.getElementById('slot-list');
+
+        // --- Event Listeners ---
+        loadoutInput.addEventListener('change', (e) => handleFile(e, 'loadout'));
+        localesInput.addEventListener('change', (e) => handleFile(e, 'locales'));
+        saveButton.addEventListener('click', handleSave);
+        modalCancel.addEventListener('click', hideModal);
+
+        /**
+         * Reads and parses an uploaded JSON file.
+         */
+        function handleFile(event, fileType) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (fileType === 'loadout') {
+                loadoutFileName = file.name.replace('.json', '_edited.json');
+            }
+
+            statusMessage.textContent = `Loading ${file.name}...`;
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    if (fileType === 'locales') {
+                        buildLocalesMap(json);
+                        filesReady.locales = true;
+                    } else if (fileType === 'loadout') {
+                        loadoutData = json;
+                        buildModSlots(json); // Build mod slots from loadout data
+                        filesReady.loadout = true;
+                    }
+                    checkAndRender();
+                } catch (err) {
+                    statusMessage.textContent = `Error parsing ${file.name}: ${err.message}`;
+                    console.error(err);
+                }
+            };
+            reader.onerror = () => { statusMessage.textContent = `Error reading ${file.name}.`; };
+            reader.readAsText(file);
+        }
+
+        /**
+         * Creates the item ID -> name lookup map and populates datalist.
+         */
+        function buildLocalesMap(localesJson) {
+            localesMap.clear();
+            allItems = [];
+            itemDatalist.innerHTML = '';
+            
+            for (const key in localesJson) {
+                const match = key.match(/^([a-f0-9]{24})\s(Name|ShortName)$/);
+                if (match) {
+                    const id = match[1];
+                    const type = match[2];
+                    const name = localesJson[key];
+
+                    if (!localesMap.has(id)) {
+                        localesMap.set(id, { name: '', shortName: '' });
+                    }
+                    const entry = localesMap.get(id);
+                    if (type === 'Name') entry.name = name;
+                    else if (type === 'ShortName') entry.shortName = name;
+                }
+            }
+            
+            // Populate allItems array and datalist
+            for (const [id, names] of localesMap.entries()) {
+                const fullName = `${names.name} (${names.shortName || '...'})`;
+                allItems.push({ id: id, name: fullName });
+                const option = document.createElement('option');
+                option.value = fullName; // User sees/searches this
+                itemDatalist.appendChild(option);
+            }
+            
+            console.log(`Locales map built with ${localesMap.size} entries.`);
+        }
+
+        /**
+         * Extracts all possible mod slot names from the 'chances' section.
+         */
+        function buildModSlots(data) {
+            allModSlots = [];
+            slotDatalist.innerHTML = '';
+            const chances = data?.chances;
+            if (!chances) return;
+
+            const slotSet = new Set();
+            if (chances.weaponMods) {
+                Object.keys(chances.weaponMods).forEach(slot => slotSet.add(slot));
+            }
+            if (chances.equipmentMods) {
+                Object.keys(chances.equipmentMods).forEach(slot => slotSet.add(slot));
+            }
+            
+            allModSlots = Array.from(slotSet).sort();
+            allModSlots.forEach(slot => {
+                const option = document.createElement('option');
+                option.value = slot;
+                slotDatalist.appendChild(option);
+            });
+            console.log(`Found ${allModSlots.length} unique mod slots.`);
+        }
+
+        /**
+         * Gets the formatted name for an item ID.
+         */
+        function getLocaleName(id) {
+            if (localesMap.has(id)) {
+                const entry = localesMap.get(id);
+                if (entry.name && entry.shortName) {
+                    return `${entry.name} (${entry.shortName})`;
+                }
+                return entry.name || entry.shortName || id;
+            }
+            return null; // Return null if not found
+        }
+        
+        /**
+         * Gets an item ID from its full locale name.
+         */
+        function getIdFromName(name) {
+            const found = allItems.find(item => item.name === name);
+            return found ? found.id : null;
+        }
+
+        /**
+         * Checks if both files are loaded and triggers the editor render.
+         */
+        function checkAndRender() {
+            if (filesReady.loadout && filesReady.locales) {
+                statusMessage.textContent = 'Files loaded. Rendering editor...';
+                editorControls.classList.remove('hidden');
+                renderEditor();
+                statusMessage.textContent = 'Editor ready. You can add, remove, and edit values.';
+            } else if (filesReady.loadout) {
+                statusMessage.textContent = 'Loadout file loaded. Waiting for locales file...';
+            } else if (filesReady.locales) {
+                statusMessage.textContent = 'Locales file loaded. Waiting for loadout file...';
+            }
+        }
+        
+        // --- Core Editor Functions ---
+
+        /**
+         * Clears and recursively builds the interactive tree view.
+         */
+        function renderEditor() {
+            editorContainer.innerHTML = ''; // Clear previous content
+            createTreeView(loadoutData, editorContainer, []);
+        }
+
+        /**
+         * Recursively creates the tree view.
+         * @param {object|array} data - The current data object/array to render.
+         * @param {HTMLElement} parentElement - The element to append children to.
+         * @param {string[]} path - The array of keys representing the path from the root.
+         */
+        function createTreeView(data, parentElement, path) {
+            if (data === null || typeof data !== 'object') {
+                parentElement.textContent = 'Invalid data';
+                return;
+            }
+
+            // Handle Arrays
+            if (Array.isArray(data)) {
+                data.forEach((item, index) => {
+                    const itemPath = [...path, index];
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'tree-node';
+                    
+                    let itemHTML = '';
+                    const itemName = (typeof item === 'string') ? getLocaleName(item) : null;
+                    
+                    if (itemName) {
+                        itemHTML = `<span class="item-name">${itemName}</span><span class="key-id">${item}</span>`;
+                    } else if (typeof item === 'object' && item !== null) {
+                        itemHTML = `[Object]`; // Nested object in array
+                    } else {
+                        itemHTML = `<span class="text-gray-400">${item}</span>`;
+                    }
+                    
+                    itemEl.innerHTML = `<div class="tree-node-key">${itemHTML}</div>`;
+                    
+                    const removeBtn = createRemoveButton(() => removeItemFromArray(path, index));
+                    itemEl.appendChild(removeBtn);
+                    parentElement.appendChild(itemEl);
+
+                    // If item is an object, recurse
+                    if (typeof item === 'object' && item !== null) {
+                        const details = document.createElement('details');
+                        details.open = false;
+                        details.style.marginLeft = '1rem';
+                        details.dataset.path = itemPath.join('.'); // <-- ADD THIS LINE
+                        parentElement.appendChild(details);
+                        createTreeView(item, details, itemPath);
+                    }
+                });
+                // Add "Add Item" button for the array
+                const addBtn = createAddButton('Add Item', () => showAddItemModal(path));
+                parentElement.appendChild(addBtn);
+            }
+            // Handle Objects
+            else {
+                for (const key in data) {
+                    if (!Object.prototype.hasOwnProperty.call(data, key)) continue;
+                    
+                    const value = data[key];
+                    const newPath = [...path, key];
+                    const keyName = getLocaleName(key);
+                    
+                    // Check if value is an object or array (needs recursion)
+                    if (value !== null && typeof value === 'object') {
+                        const details = document.createElement('details');
+                        details.open = ['chances', 'inventory', 'mods'].includes(key); 
+                        details.dataset.path = newPath.join('.'); // <-- ADD THIS LINE
+                        
+                        const summary = document.createElement('summary');
+                        let summaryHTML = '';
+                        if (keyName) {
+                            summaryHTML = `<span class="item-name">${keyName}</span><span class="key-id">${key}</span>`;
+                        } else {
+                            const isModSlot = key.startsWith('mod_');
+                            summaryHTML = `<span class="${isModSlot ? 'mod-slot' : 'key-name'}">${key}</span>`;
+                        }
+                        
+                        const summaryKey = document.createElement('div');
+                        summaryKey.className = 'tree-node-key';
+                        summaryKey.innerHTML = summaryHTML;
+                        
+                        summary.appendChild(summaryKey);
+                        summary.appendChild(createRemoveButton(() => removeItemFromObject(path, key), true));
+                        details.appendChild(summary);
+                        parentElement.appendChild(details);
+                        
+                        // Recurse
+                        createTreeView(value, details, newPath);
+                    } else {
+                        // It's a primitive value (string, number, boolean)
+                        const leaf = document.createElement('div');
+                        leaf.className = 'tree-node';
+
+                        let keyDisplay = '';
+                        if (keyName) {
+                            keyDisplay = `<span class="item-name">${keyName}</span><span class="key-id">${key}</span>`;
+                        } else {
+                            keyDisplay = `<span class="key-name">${key}</span>`;
+                        }
+
+                        leaf.innerHTML = `<div class="tree-node-key">${keyDisplay}</div>`;
+                        
+                        const valueContainer = document.createElement('div');
+                        if (typeof value === 'number') {
+                            const input = document.createElement('input');
+                            input.type = 'number';
+                            input.value = value;
+                            input.step = "any";
+                            input.dataset.path = newPath.join('.');
+                            input.addEventListener('change', handleValueChange);
+                            valueContainer.appendChild(input);
+                        } else {
+                            const valueSpan = document.createElement('span');
+                            valueSpan.textContent = value;
+                            valueSpan.className = 'text-gray-400';
+                            valueContainer.appendChild(valueSpan);
+                        }
+                        
+                        valueContainer.appendChild(createRemoveButton(() => removeItemFromObject(path, key)));
+                        leaf.appendChild(valueContainer);
+                        parentElement.appendChild(leaf);
+                    }
+                }
+                // Add "Add Property" button for the object
+                const addBtn = createAddButton('Add Property', () => showAddPropertyModal(path));
+                parentElement.appendChild(addBtn);
+            }
+        }
+        
+        function createRemoveButton(onClick, isSummary = false) {
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.className = 'remove-btn';
+            removeBtn.onclick = (e) => {
+                if (isSummary) e.preventDefault(); // Prevent details toggling
+                onClick();
+            };
+            return removeBtn;
+        }
+
+        function createAddButton(text, onClick) {
+            const addBtn = document.createElement('button');
+            addBtn.textContent = text;
+            addBtn.className = 'add-btn';
+            addBtn.onclick = onClick;
+            return addBtn;
+        }
+
+        // --- Modal Functions ---
+        
+        function showModal(title, content, onConfirm) {
+            modalTitle.textContent = title;
+            modalContent.innerHTML = content;
+            modal.classList.remove('hidden');
+            // Clone and replace confirm button to remove old listeners
+            const newConfirm = modalConfirm.cloneNode(true);
+            newConfirm.textContent = 'Confirm';
+            modalConfirm.parentNode.replaceChild(newConfirm, modalConfirm);
+            newConfirm.addEventListener('click', onConfirm);
+            // Re-assign global var
+            modalConfirm = newConfirm;
+        }
+
+        function hideModal() {
+            modal.classList.add('hidden');
+            modalContent.innerHTML = '';
+        }
+        
+        function showAddItemModal(path) {
+            const title = 'Add New Item';
+            const content = `
+                <div>
+                    <label for="modal-item-name" class="block text-sm font-medium text-gray-300">Item Name (searchable)</label>
+                    <input id="modal-item-name" list="item-list" class="modal-input mt-1" autocomplete="off">
+                </div>
+            `;
+            const onConfirm = () => {
+                const itemName = document.getElementById('modal-item-name').value;
+                const itemId = getIdFromName(itemName);
+                if (itemId) {
+                    addItemToArray(path, itemId);
+                    hideModal();
+                } else {
+                    alert('Item not found. Please select a valid item from the list.');
+                }
+            };
+            showModal(title, content, onConfirm);
+        }
+
+        function showAddPropertyModal(path) {
+            const title = 'Add New Property';
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <label for="modal-prop-key" class="block text-sm font-medium text-gray-300">Property Key (search items/slots)</label>
+                        <input id="modal-prop-key" list="item-list slot-list" class="modal-input mt-1" autocomplete="off" placeholder="Type item name, slot name, or new key...">
+                    </div>
+                    <div>
+                        <label for="modal-prop-value" class="block text-sm font-medium text-gray-300">Property Value</label>
+                        <input id="modal-prop-value" class="modal-input mt-1" placeholder="e.g., 100, [], {}, or &quot;text&quot;">
+                    </div>
+                </div>
+            `;
+            
+            const onConfirm = () => {
+                const keyName = document.getElementById('modal-prop-key').value;
+                const rawValue = document.getElementById('modal-prop-value').value;
+                
+                // If user selected an item, use its ID as the key
+                const keyId = getIdFromName(keyName) || keyName;
+                
+                let value;
+                try {
+                    // Try to parse as JSON (for [], {}, numbers)
+                    value = JSON.parse(rawValue);
+                } catch (e) {
+                    // Fallback to string
+                    value = rawValue;
+                }
+                
+                addPropertyToObject(path, keyId, value);
+                hideModal();
+            };
+            
+            showModal(title, content, onConfirm);
+        }
+        
+        // --- Data Mutation Functions ---
+
+        /**
+         * Safely gets the object at a given path.
+         */
+        function getObjectAt(path) {
+            let current = loadoutData;
+            for (const key of path) {
+                if (current[key] === undefined) {
+                    console.error('Invalid path', path, 'at key', key);
+                    return null;
+                }
+                current = current[key];
+            }
+            return current;
+        }
+
+        // --- New functions to preserve open state ---
+        function storeOpenStates() {
+            const openPaths = new Set();
+            const openDetails = editorContainer.querySelectorAll('details[open]');
+            openDetails.forEach(el => {
+                if (el.dataset.path) {
+                    openPaths.add(el.dataset.path);
+                }
+            });
+            return openPaths;
+        }
+
+        function restoreOpenStates(openPaths) {
+            openPaths.forEach(path => {
+                const el = editorContainer.querySelector(`details[data-path="${path}"]`);
+                if (el) el.open = true;
+            });
+        }
+
+        /**
+         * Rerenders the editor while preserving open states.
+         */
+        function rerender() {
+            const openPaths = storeOpenStates();
+            renderEditor();
+            restoreOpenStates(openPaths);
+        }
+        // --- End new functions ---
+
+        function removeItemFromArray(arrayPath, index) {
+            const array = getObjectAt(arrayPath);
+            if (array && Array.isArray(array)) {
+                array.splice(index, 1);
+                rerender(); // <-- Use rerender()
+            }
+        }
+
+        function removeItemFromObject(objectPath, key) {
+            const obj = getObjectAt(objectPath);
+            if (obj && typeof obj === 'object') {
+                delete obj[key];
+                rerender(); // <-- Use rerender()
+            }
+        }
+
+        function addItemToArray(arrayPath, itemId) {
+            const array = getObjectAt(arrayPath);
+            if (array && Array.isArray(array)) {
+                array.push(itemId);
+                rerender(); // <-- Use rerender()
+            }
+        }
+
+        function addPropertyToObject(objectPath, key, value) {
+            const obj = getObjectAt(objectPath);
+            if (obj && typeof obj === 'object') {
+                obj[key] = value;
+                rerender(); // <-- Use rerender()
+            }
+        }
+
+        /**
+         * Updates the global loadoutData object when an input is changed.
+         */
+        function handleValueChange(event) {
+            const path = event.target.dataset.path.split('.');
+            const value = Number(event.target.value);
+
+            if (isNaN(value)) {
+                console.warn(`Invalid number input for path: ${path.join('.')}`);
+                return;
+            }
+
+            // Get parent object
+            const parentPath = path.slice(0, -1);
+            const key = path[path.length - 1];
+            const obj = getObjectAt(parentPath);
+            
+            if (obj) {
+                obj[key] = value;
+                console.log(`Updated ${path.join('.')} to ${value}`);
+            }
+        }
+
+        /**
+         * Stringifies the edited loadoutData and triggers a file download.
+         */
+        function handleSave() {
+            if (!loadoutData) {
+                alert('No loadout data to save.');
+                return;
+            }
+
+            try {
+                const dataStr = JSON.stringify(loadoutData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(dataBlob);
+                a.download = loadoutFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+
+                statusMessage.textContent = `Successfully saved and downloaded ${loadoutFileName}.`;
+
+            } catch (err) {
+                statusMessage.textContent = `Error saving file: ${err.message}`;
+                console.error(err);
+            }
+        }
+
+    </script>
+</body>
+</html>
